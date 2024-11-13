@@ -5,9 +5,10 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils import executor
+import os
 
 # Токен вашего Telegram-бота
-API_TOKEN = '7249249749:AAGUhbtJZTRdWMJnohFqptkqhdvowjQcBSg'
+API_TOKEN = '7249249749:AAHPpuPqSQp48okFcXkXDC7vLSdfEpmVrEM'
 POSTBACK_API_URL = "https://postback-server-boba.onrender.com/data"
 
 # Инициализация бота и диспетчера
@@ -26,17 +27,28 @@ async def send_message(chat_id, text, markup=None, parse_mode='Markdown'):
     await asyncio.sleep(0.9)
     await bot.send_message(chat_id, text, reply_markup=markup, parse_mode=parse_mode)
 
+# Функция для отправки фото
+async def send_photo(chat_id, file_path, caption=None, markup=None, parse_mode='Markdown'):
+    if os.path.exists(file_path):
+        with open(file_path, 'rb') as photo:
+            await bot.send_photo(chat_id, photo=photo, caption=caption, reply_markup=markup, parse_mode=parse_mode)
+    else:
+        await send_message(chat_id, "⚠️ Изображение не найдено.", markup=markup)
+
 # Приветственное сообщение и кнопка для присоединения к тестированию
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
     join_button = InlineKeyboardMarkup().add(
         InlineKeyboardButton("🚀 Присоединиться к тестированию", callback_data='join')
     )
-    await send_message(
+    await send_photo(
         message.chat.id,
-        "*👋 Добро пожаловать!*\n\n"
-        "Мы — команда *RED SOFT* 🚀, занимающаяся разработкой вычислительных алгоритмов для различных задач.\n\n"
-        "Сейчас у вас есть уникальная возможность поучаствовать в *открытом тестировании* и получить доступ к нашему решению совершенно бесплатно! 🎉",
+        "static/redsoftpage.png",
+        caption=(
+            "*👋 Добро пожаловать!*\n\n"
+            "Мы — команда *RED SOFT* 🚀, занимающаяся разработкой вычислительных алгоритмов для различных задач.\n\n"
+            "Сейчас у вас есть уникальная возможность поучаствовать в *открытом тестировании* и получить доступ к нашему решению совершенно бесплатно! 🎉"
+        ),
         markup=join_button
     )
 
@@ -48,37 +60,27 @@ async def process_join(callback_query: types.CallbackQuery):
         InlineKeyboardButton("✅ Проверить регистрацию", callback_data='check_registration')
     )
 
-    # Попробуем отправить изображение, если не получится - отправим только текст
-    try:
-        with open("instruction.png", 'rb') as photo:
-            await bot.send_photo(
-                callback_query.message.chat.id,
-                photo=photo,
-                caption=(
-                    "*🎉 Спасибо за ваше участие!*\n\n"
-                    "Для работы вам нужен аккаунт на *1win*.\n\n"
-                    "⚠️ *Важно*: зарегистрируйте аккаунт по промокоду *GPT24*."
-                ),
-                parse_mode='Markdown',
-                reply_markup=registration_button
-            )
-    except Exception as e:
-        logging.error(f"Ошибка при отправке изображения: {e}")
-        await send_message(
-            callback_query.message.chat.id,
+    await send_photo(
+        callback_query.message.chat.id,
+        "static/instruction.png",
+        caption=(
             "*🎉 Спасибо за ваше участие!*\n\n"
             "Для работы вам нужен аккаунт на *1win*.\n\n"
-            "⚠️ *Важно*: зарегистрируйте аккаунт по промокоду *GPT24*.",
-            markup=registration_button
-        )
+            "⚠️ *Важно*: зарегистрируйте аккаунт по промокоду *GPT24*."
+        ),
+        markup=registration_button
+    )
 
 # Обработка нажатия на кнопку "Проверить регистрацию"
 @dp.callback_query_handler(lambda c: c.data == 'check_registration')
 async def check_registration(callback_query: types.CallbackQuery):
-    await send_message(
+    await send_photo(
         callback_query.message.chat.id,
-        "*🔍 Введите ID вашего аккаунта на 1win для проверки.*\n\n"
-        "📌 Вы можете найти ваш ID в личном кабинете на сайте 1win."
+        "static/id.png",
+        caption=(
+            "*🔍 Введите ID вашего аккаунта на 1win для проверки.*\n\n"
+            "📌 Вы можете найти ваш ID в личном кабинете на сайте 1win."
+        )
     )
     users[callback_query.message.chat.id] = 'awaiting_id'
 
@@ -107,7 +109,6 @@ async def process_user_id(message: types.Message):
                 "Пожалуйста, убедитесь, что вы зарегистрировались по промокоду *GPT24*."
             )
     except requests.exceptions.RequestException as e:
-        logging.error(f"Ошибка при проверке ID: {e}")
         await send_message(
             message.chat.id,
             f"⚠️ *Ошибка при проверке ID*. Попробуйте позже. Ошибка: {e}"
