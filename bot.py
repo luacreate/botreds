@@ -7,7 +7,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils import executor
 
 # Токен вашего Telegram-бота
-API_TOKEN = '7249249749:AAGUhbtJZTRdWMJnohFqptkqhdvowjQcBSg'
+API_TOKEN = '7249249749:AAHPpuPqSQp48okFcXkXDC7vLSdfEpmVrEM'
 POSTBACK_API_URL = "https://postback-server-boba.onrender.com/data"
 
 # Инициализация бота и диспетчера
@@ -18,22 +18,13 @@ dp.middleware.setup(LoggingMiddleware())
 # Логирование
 logging.basicConfig(level=logging.INFO)
 
-# Состояние пользователей и хранение последних сообщений
+# Состояние пользователей для ввода ID
 users = {}
-last_bot_message = {}
 
-# Функция для отправки сообщения с задержкой и удалением предыдущего сообщения
+# Функция для отправки сообщения с задержкой
 async def send_message(chat_id, text, markup=None, parse_mode='Markdown'):
-    if chat_id in last_bot_message:
-        try:
-            await bot.delete_message(chat_id, last_bot_message[chat_id])
-        except Exception:
-            pass
-
     await asyncio.sleep(0.9)
-    message = await bot.send_message(chat_id, text, reply_markup=markup, parse_mode=parse_mode)
-    last_bot_message[chat_id] = message.message_id
-    return message
+    await bot.send_message(chat_id, text, reply_markup=markup, parse_mode=parse_mode)
 
 # Приветственное сообщение и кнопка для присоединения к тестированию
 @dp.message_handler(commands=['start'])
@@ -56,6 +47,8 @@ async def process_join(callback_query: types.CallbackQuery):
         InlineKeyboardButton("🔗 Зарегистрироваться на 1win", url="https://1wbhk.com/casino/list?open=register&p=24h6"),
         InlineKeyboardButton("✅ Проверить регистрацию", callback_data='check_registration')
     )
+
+    # Попробуем отправить изображение, если не получится - отправим только текст
     try:
         with open("instruction.png", 'rb') as photo:
             await bot.send_photo(
@@ -69,10 +62,13 @@ async def process_join(callback_query: types.CallbackQuery):
                 parse_mode='Markdown',
                 reply_markup=registration_button
             )
-    except FileNotFoundError:
+    except Exception as e:
+        logging.error(f"Ошибка при отправке изображения: {e}")
         await send_message(
             callback_query.message.chat.id,
-            "⚠️ Изображение инструкции не найдено. Пожалуйста, проверьте наличие файла.",
+            "*🎉 Спасибо за ваше участие!*\n\n"
+            "Для работы вам нужен аккаунт на *1win*.\n\n"
+            "⚠️ *Важно*: зарегистрируйте аккаунт по промокоду *GPT24*.",
             markup=registration_button
         )
 
@@ -111,6 +107,7 @@ async def process_user_id(message: types.Message):
                 "Пожалуйста, убедитесь, что вы зарегистрировались по промокоду *GPT24*."
             )
     except requests.exceptions.RequestException as e:
+        logging.error(f"Ошибка при проверке ID: {e}")
         await send_message(
             message.chat.id,
             f"⚠️ *Ошибка при проверке ID*. Попробуйте позже. Ошибка: {e}"
@@ -118,7 +115,7 @@ async def process_user_id(message: types.Message):
     finally:
         users[message.chat.id] = 'awaiting_id'
 
-# Игнорирование всех сообщений, если бот не ожидает ввода ID
+# Игнорирование всех остальных сообщений, если бот не ожидает ввода ID
 @dp.message_handler()
 async def ignore_message(message: types.Message):
     if users.get(message.chat.id) != 'awaiting_id':
