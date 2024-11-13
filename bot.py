@@ -103,6 +103,16 @@ async def process_user_id(message: types.Message):
         await message.answer(
             f"⚠️ Произошла ошибка при проверке вашего ID. Пожалуйста, попробуйте позже. Ошибка: {e}"
         )
+    finally:
+        # Сбрасываем состояние пользователя после проверки
+        users.pop(message.chat.id, None)
+
+# Игнорирование всех остальных сообщений, если бот не ожидает ввода ID
+@dp.message_handler()
+async def ignore_message(message: types.Message):
+    if users.get(message.chat.id) != 'awaiting_id':
+        # Игнорируем все сообщения, если бот не находится в состоянии ожидания ID
+        return
 
 # Запуск бота
 if __name__ == '__main__':
