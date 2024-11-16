@@ -1,171 +1,110 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Red Soft Signals</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            background: url('redsoftlogo.png') no-repeat center center fixed;
-            background-size: cover;
-            font-family: 'Poppins', sans-serif;
-            color: #fff;
-            overflow: hidden;
-        }
-
-        .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 40px;
-            border-radius: 20px;
-            background: rgba(0, 0, 0, 0.6);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(10px);
-            width: 90%;
-            max-width: 400px;
-        }
-
-        .logo {
-            width: 120px;
-            margin-bottom: 20px;
-        }
-
-        h1 {
-            font-size: 24px;
-            margin-bottom: 30px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-        }
-
-        .multiplier-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background: rgba(255, 50, 50, 0.2);
-            box-shadow: 0 4px 15px rgba(255, 0, 0, 0.5);
-        }
-
-        .multiplier {
-            font-size: 2em;
-            font-weight: bold;
-            color: #ff6f61;
-        }
-
-        #entroImage {
-            display: none;
-            width: 100%;
-            height: auto;
-        }
-
-        .button {
-            padding: 15px;
-            margin-top: 20px;
-            width: 100%;
-            background: linear-gradient(135deg, #ff416c, #ff4b2b);
-            border: none;
-            border-radius: 10px;
-            color: white;
-            font-size: 1em;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .button:hover {
-            transform: translateY(-3px);
-        }
-
-        .support {
-            margin-top: 20px;
-            font-size: 0.9em;
-        }
-
-        .support a {
-            color: #ff8bff;
-            text-decoration: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <img src="https://1winbd.com/wp-content/uploads/2022/10/lucky-jet-header.webp" alt="Логотип" class="logo">
-        <h1>Red Soft Signals</h1>
-
-        <!-- Множитель или изображение -->
-        <div class="multiplier-container">
-            <img src="entro.svg" alt="Загрузка" id="entroImage">
-            <div class="multiplier" id="multiplier">x0.00</div>
-        </div>
-
-        <button class="button" onclick="checkDepositAndGenerateSignal()">Получить сигнал</button>
-        <button class="button secondary" onclick="window.location.href='menu.html'">Вернуться в меню</button>
-
-        <div class="support">
-            Тех. Поддержка: <a href="https://t.me/redsoft_support" target="_blank">Написать в Telegram</a>
-        </div>
-    </div>
-
-    <script>
-        const multiplierElement = document.getElementById("multiplier");
-        const entroImage = document.getElementById("entroImage");
-
-        function init() {
-            multiplierElement.style.display = 'none';
-            entroImage.style.display = 'block';
-        }
-
-        function checkDepositAndGenerateSignal() {
-            const userId = localStorage.getItem('userId');
-            if (!userId) {
-                alert("Ошибка: ID пользователя не найден!");
-                return;
-            }
-
-            fetch('https://postback-server-boba.onrender.com/data')
-                .then(response => response.json())
-                .then(data => {
-                    const userEntry = data.find(entry => entry.user_id === userId);
-                    if (userEntry) {
-                        if (userEntry.amount > 19) {
-                            displayLoadingAndGenerateMultiplier();
-                        } else {
-                            alert("Недостаточно депозита для сигнала.");
-                        }
-                    } else {
-                        alert("Аккаунт не найден!");
-                    }
-                })
-                .catch(error => {
-                    console.error('Ошибка сервера:', error);
-                });
-        }
-
-        function displayLoadingAndGenerateMultiplier() {
-            multiplierElement.style.display = 'none';
-            entroImage.style.display = 'block';
-            
-            setTimeout(() => {
-                entroImage.style.display = 'none';
-                const randomMultiplier = (Math.random() * 9 + 1).toFixed(2);
-                multiplierElement.textContent = `x${randomMultiplier}`;
-                multiplierElement.style.display = 'block';
-            }, 2000);
-        }
-
-        window.onload = init;
-    </script>
-</body>
-</html>
+import logging
+import requests
+import asyncio
+from aiogram import Bot, Dispatcher, types
+from aiogram.contrib.middlewares.logging import LoggingMiddleware
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils import executor
+# Токен вашего Telegram-бота
+API_TOKEN = 'ВАШ_ТОКЕН'
+POSTBACK_API_URL = "https://postback-server-boba.onrender.com/data"
+# Инициализация бота и диспетчера
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
+dp.middleware.setup(LoggingMiddleware())
+# Логирование
+logging.basicConfig(level=logging.INFO)
+# Состояние пользователей для ввода ID
+users = {}
+# Функция для отправки сообщений с задержкой
+async def send_message(chat_id, text, markup=None, parse_mode='Markdown'):
+    try:
+        await asyncio.sleep(0.9)
+        await bot.send_message(chat_id, text, reply_markup=markup, parse_mode=parse_mode)
+    except Exception as e:
+        logging.error(f"Ошибка при отправке сообщения: {e}")
+# Приветственное сообщение с кнопкой
+@dp.message_handler(commands=['start'])
+async def start_command(message: types.Message):
+    join_button = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("🚀 Присоединиться к тестированию", callback_data='join')
+    )
+    try:
+        with open("static/redsoftpage.png", 'rb') as photo:
+            await bot.send_photo(
+                message.chat.id,
+                photo=photo,
+                caption=(
+                    "👋 Добро пожаловать!\n\n"
+                    "Мы — команда **RED SOFT** 🚀, которая занимается разработкой вычислительных алгоритмов."
+                ),
+                parse_mode='Markdown',
+                reply_markup=join_button
+            )
+    except Exception as e:
+        logging.error(f"Ошибка при отправке фото: {e}")
+# Обработка нажатия на кнопку "Присоединиться к тестированию"
+@dp.callback_query_handler(lambda c: c.data == 'join')
+async def process_join(callback_query: types.CallbackQuery):
+    registration_button = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("🔗 Зарегистрироваться на 1win", url="https://1wbhk.com/casino/list?open=register&p=24h6"),
+        InlineKeyboardButton("✅ Проверить регистрацию", callback_data='check_registration')
+    )
+    try:
+        with open("static/instruction.png", 'rb') as photo:
+            await bot.send_photo(
+                callback_query.message.chat.id,
+                photo=photo,
+                caption=(
+                    "*🎉 Спасибо за участие!*\n\n"
+                    "Для работы вам нужен аккаунт на *1win*."
+                ),
+                parse_mode='Markdown',
+                reply_markup=registration_button
+            )
+    except Exception as e:
+        logging.error(f"Ошибка при отправке фото: {e}")
+# Обработка нажатия на кнопку "Проверить регистрацию"
+@dp.callback_query_handler(lambda c: c.data == 'check_registration')
+async def check_registration(callback_query: types.CallbackQuery):
+    with open("static/id.png", 'rb') as photo:
+        await bot.send_photo(
+            callback_query.message.chat.id,
+            photo=photo,
+            caption=(
+                "🔍 Введите **ID вашего аккаунта на 1win** для проверки."
+            ),
+            parse_mode='Markdown'
+        )
+    users[callback_query.message.chat.id] = 'awaiting_id'
+# Обработка ввода ID пользователя
+@dp.message_handler(lambda message: users.get(message.chat.id) == 'awaiting_id')
+async def process_user_id(message: types.Message):
+    user_id = message.text.strip()
+    chat_id = message.chat.id
+    try:
+        response = requests.get(POSTBACK_API_URL)
+        response.raise_for_status()
+        data = response.json()
+        if any(user.get("user_id") == user_id for user in data):
+            await send_message(
+                chat_id,
+                "✅ **Аккаунт найден!** 🎉",
+                markup=InlineKeyboardMarkup().add(
+                    InlineKeyboardButton("📱 Запустить приложение", url="https://t.me/redsofts_bot/soft")
+                )
+            )
+            users.pop(chat_id, None)
+        else:
+            await send_message(chat_id, "*❌ ID не найден.*")
+            users[chat_id] = 'awaiting_id'
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Ошибка при проверке ID: {e}")
+        await send_message(chat_id, "⚠️ Ошибка при проверке ID. Попробуйте позже.")
+# Игнорирование остальных сообщений
+@dp.message_handler()
+async def ignore_message(message: types.Message):
+    if users.get(message.chat.id) != 'awaiting_id':
+        return
+if __name__ == '__main__':
+    executor.start_polling(dp, skip_updates=True)
