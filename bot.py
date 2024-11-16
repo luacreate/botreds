@@ -6,7 +6,7 @@ from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils import executor
 # Токен вашего Telegram-бота
-API_TOKEN = 'ВАШ_ТОКЕН'
+API_TOKEN = '7249249749:AAFhJTzjk-r2D8ayZVcpJNMUV1ggZz64Sr0'
 POSTBACK_API_URL = "https://postback-server-boba.onrender.com/data"
 # Инициализация бота и диспетчера
 bot = Bot(token=API_TOKEN)
