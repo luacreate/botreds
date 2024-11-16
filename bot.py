@@ -7,8 +7,11 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils import executor
 
 # Токен вашего Telegram-бота
-API_TOKEN = '7249249749:AAFhJTzjk-r2D8ayZVcpJNMUV1ggZz64Sr0'
+API_TOKEN = 'Ваш_Токен'
 POSTBACK_API_URL = "https://postback-server-boba.onrender.com/data"
+
+# Админ ID
+ADMIN_IDS = [5521147132, 6942578867]
 
 # Инициализация бота и диспетчера
 bot = Bot(token=API_TOKEN)
@@ -18,8 +21,9 @@ dp.middleware.setup(LoggingMiddleware())
 # Логирование
 logging.basicConfig(level=logging.INFO)
 
-# Состояние пользователей для ввода ID
+# Состояние пользователей для ввода ID и рассылки
 users = {}
+user_list = set()  # Список пользователей
 
 # Функция для отправки сообщения с задержкой
 async def send_message(chat_id, text, markup=None, parse_mode='Markdown'):
@@ -29,6 +33,7 @@ async def send_message(chat_id, text, markup=None, parse_mode='Markdown'):
 # Приветственное сообщение с кнопкой для присоединения к тестированию
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
+    user_list.add(message.chat.id)
     join_button = InlineKeyboardMarkup().add(
         InlineKeyboardButton("🚀 Присоединиться к тестированию", callback_data='join')
     )
@@ -89,12 +94,10 @@ async def process_user_id(message: types.Message):
     chat_id = message.chat.id
 
     try:
-        # Запрос на сервер для проверки ID
         response = requests.get(POSTBACK_API_URL)
         response.raise_for_status()
         data = response.json()
 
-        # Проверка, найден ли аккаунт в базе данных
         if any(user.get("user_id") == user_id for user in data):
             await send_message(
                 chat_id,
@@ -105,27 +108,54 @@ async def process_user_id(message: types.Message):
                     InlineKeyboardButton("📱 Запустить приложение", url="https://t.me/redsofts_bot/soft")
                 )
             )
-            # Сбрасываем состояние пользователя, так как ID введён верно
             users.pop(chat_id, None)
         else:
-            await send_message(
-                chat_id,
-                "*❌ ID не найден.*\n\n"
-                "Пожалуйста, убедитесь, что вы зарегистрировались по промокоду *GPT24*."
-            )
-            # Продолжаем ожидание ввода ID
-            users[chat_id] = 'awaiting_id'
+            await send_message(chat_id, "*❌ ID не найден.*\n\nПожалуйста, убедитесь, что вы зарегистрировались по промокоду *GPT24*.")
     except requests.exceptions.RequestException:
         await send_message(chat_id, "Произошла ошибка при проверке ID. Пожалуйста, попробуйте позже.")
-    finally:
-        if chat_id in users:
-            users[chat_id] = 'awaiting_id'
 
-# Игнорирование всех остальных сообщений, если бот не ожидает ввода ID
-@dp.message_handler()
-async def ignore_message(message: types.Message):
-    if users.get(message.chat.id) != 'awaiting_id':
+# Админ-панель
+@dp.message_handler(commands=['admin'])
+async def admin_panel(message: types.Message):
+    if message.from_user.id in ADMIN_IDS:
+        admin_markup = InlineKeyboardMarkup()
+        admin_markup.add(
+            InlineKeyboardButton("👥 Кол-во пользователей", callback_data='user_count'),
+            InlineKeyboardButton("📢 Сделать рассылку", callback_data='broadcast')
+        )
+        await message.reply("🔧 Админ-панель", reply_markup=admin_markup)
+    else:
+        await message.reply("❌ У вас нет доступа к этой команде.")
+
+# Обработка нажатий в админ-панели
+@dp.callback_query_handler(lambda c: c.data in ['user_count', 'broadcast'])
+async def admin_actions(callback_query: types.CallbackQuery):
+    if callback_query.from_user.id not in ADMIN_IDS:
+        await callback_query.answer("У вас нет доступа!", show_alert=True)
         return
+
+    if callback_query.data == 'user_count':
+        await callback_query.message.answer(f"👥 Количество пользователей: {len(user_list)}")
+
+    elif callback_query.data == 'broadcast':
+        await callback_query.message.answer("📢 Введите сообщение для рассылки:")
+        users[callback_query.message.chat.id] = 'awaiting_broadcast'
+
+# Обработка сообщения для рассылки
+@dp.message_handler(lambda message: users.get(message.chat.id) == 'awaiting_broadcast')
+async def process_broadcast(message: types.Message):
+    broadcast_text = message.text
+    sent_count = 0
+
+    for user_id in user_list:
+        try:
+            await send_message(user_id, broadcast_text)
+            sent_count += 1
+        except Exception as e:
+            logging.error(f"Не удалось отправить сообщение пользователю {user_id}: {e}")
+
+    await message.reply(f"✅ Сообщение отправлено {sent_count} пользователям.")
+    users.pop(message.chat.id, None)
 
 # Запуск бота
 if __name__ == '__main__':
