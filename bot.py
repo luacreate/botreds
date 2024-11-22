@@ -7,7 +7,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils import executor
 
 # Токен вашего Telegram-бота
-API_TOKEN = '7249249749:AAFhJTzjk-r2D8ayZVcpJNMUV1ggZz64Sr0'
+API_TOKEN = '7249249749:AAGJknvtqYjjt4KzGRKngmq6VZeDNjJospI'
 POSTBACK_API_URL = "https://postback-server-boba.onrender.com/data"
 
 # Админ ID
