@@ -56,7 +56,7 @@ async def start_command(message: types.Message):
 @dp.callback_query_handler(lambda c: c.data == 'join')
 async def process_join(callback_query: types.CallbackQuery):
     registration_button = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("🔗 Зарегистрироваться на 1win", url="https://1wbhk.com/casino/list?open=register&p=24h6"),
+        InlineKeyboardButton("🔗 Зарегистрироваться на 1win", url="https://1wqydy.top/casino/list?open=register&p=24h6"),
         InlineKeyboardButton("✅ Проверить регистрацию", callback_data='check_registration')
     )
     with open("static/instruction.png", 'rb') as photo:
