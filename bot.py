@@ -12,6 +12,8 @@ POSTBACK_API_URL = "https://postback-server-boba.onrender.com/data"
 
 # Админ ID
 ADMIN_IDS = [5521147132, 6942578867]
+TELEGRAM_CHANNEL_ID = "-1002214579126"  # ID вашего канала
+CHANNEL_INVITE_LINK = "https://t.me/+iG3Cm4JJoZpjY2U0"  # Ссылка на канал
 
 # Инициализация бота и диспетчера
 bot = Bot(token=API_TOKEN)
@@ -25,13 +27,51 @@ logging.basicConfig(level=logging.INFO)
 users = {}
 user_list = set()  # Список пользователей
 
+
+# Функция проверки подписки на канал
+async def check_subscription(user_id):
+    try:
+        status = await bot.get_chat_member(TELEGRAM_CHANNEL_ID, user_id)
+        if status.status in ['creator', 'administrator', 'member']:
+            return True
+        return False
+    except Exception as e:
+        logging.error(f"Ошибка при проверке подписки: {e}")
+        return False
+
+
 # Функция для отправки сообщения с задержкой
 async def send_message(chat_id, text, markup=None, parse_mode='Markdown'):
     await asyncio.sleep(0.9)
     await bot.send_message(chat_id, text, reply_markup=markup, parse_mode=parse_mode)
 
+
+# Проверка подписки перед обработкой любого сообщения
+@dp.message_handler()
+async def check_subscription_and_process(message: types.Message):
+    is_subscribed = await check_subscription(message.chat.id)
+    if not is_subscribed:
+        subscribe_button = InlineKeyboardMarkup().add(
+            InlineKeyboardButton("Подписаться", url=CHANNEL_INVITE_LINK)
+        )
+        await message.answer(
+            "❌ Для использования этого бота необходимо подписаться на наш Telegram-канал.",
+            reply_markup=subscribe_button
+        )
+        return
+
+    # Если подписан, продолжаем с остальной логикой
+    if message.text == '/start':
+        await start_command(message)
+    elif message.text == '/admin':
+        await admin_panel(message)
+    elif message.chat.id in users and users[message.chat.id] == 'awaiting_id':
+        await process_user_id(message)
+    elif message.chat.id in users and users[message.chat.id] == 'awaiting_broadcast':
+        await process_broadcast(message)
+
+
 # Приветственное сообщение с кнопкой для присоединения к тестированию
-@dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
     user_list.add(message.chat.id)
     join_button = InlineKeyboardMarkup().add(
@@ -51,6 +91,7 @@ async def start_command(message: types.Message):
             parse_mode='Markdown',
             reply_markup=join_button
         )
+
 
 # Обработка нажатия на кнопку "Присоединиться к тестированию"
 @dp.callback_query_handler(lambda c: c.data == 'join')
@@ -72,6 +113,7 @@ async def process_join(callback_query: types.CallbackQuery):
             reply_markup=registration_button
         )
 
+
 # Обработка нажатия на кнопку "Проверить регистрацию"
 @dp.callback_query_handler(lambda c: c.data == 'check_registration')
 async def check_registration(callback_query: types.CallbackQuery):
@@ -86,6 +128,7 @@ async def check_registration(callback_query: types.CallbackQuery):
             parse_mode='Markdown'
         )
     users[callback_query.message.chat.id] = 'awaiting_id'
+
 
 # Обработка ввода ID пользователя
 @dp.message_handler(lambda message: users.get(message.chat.id) == 'awaiting_id')
@@ -114,6 +157,7 @@ async def process_user_id(message: types.Message):
     except requests.exceptions.RequestException:
         await send_message(chat_id, "Произошла ошибка при проверке ID. Пожалуйста, попробуйте позже.")
 
+
 # Админ-панель
 @dp.message_handler(commands=['admin'])
 async def admin_panel(message: types.Message):
@@ -126,6 +170,7 @@ async def admin_panel(message: types.Message):
         await message.reply("🔧 Админ-панель", reply_markup=admin_markup)
     else:
         await message.reply("❌ У вас нет доступа к этой команде.")
+
 
 # Обработка нажатий в админ-панели
 @dp.callback_query_handler(lambda c: c.data in ['user_count', 'broadcast'])
@@ -140,6 +185,7 @@ async def admin_actions(callback_query: types.CallbackQuery):
     elif callback_query.data == 'broadcast':
         await callback_query.message.answer("📢 Введите сообщение для рассылки:")
         users[callback_query.message.chat.id] = 'awaiting_broadcast'
+
 
 # Обработка сообщения для рассылки
 @dp.message_handler(lambda message: users.get(message.chat.id) == 'awaiting_broadcast')
@@ -156,6 +202,7 @@ async def process_broadcast(message: types.Message):
 
     await message.reply(f"✅ Сообщение отправлено {sent_count} пользователям.")
     users.pop(message.chat.id, None)
+
 
 # Запуск бота
 if __name__ == '__main__':
