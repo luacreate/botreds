@@ -52,7 +52,8 @@ async def check_subscription_and_process(message: types.Message):
     is_subscribed = await check_subscription(message.chat.id)
     if not is_subscribed:
         subscribe_button = InlineKeyboardMarkup().add(
-            InlineKeyboardButton("Подписаться", url=CHANNEL_INVITE_LINK)
+            InlineKeyboardButton("Подписаться", url=CHANNEL_INVITE_LINK),
+            InlineKeyboardButton("Проверить подписку", callback_data='check_subscription')
         )
         await message.answer(
             "❌ Для использования этого бота необходимо подписаться на наш Telegram-канал.",
@@ -111,6 +112,24 @@ async def process_join(callback_query: types.CallbackQuery):
             ),
             parse_mode='Markdown',
             reply_markup=registration_button
+        )
+
+
+# Обработка нажатия на кнопку "Проверить подписку"
+@dp.callback_query_handler(lambda c: c.data == 'check_subscription')
+async def check_subscription_button(callback_query: types.CallbackQuery):
+    is_subscribed = await check_subscription(callback_query.from_user.id)
+    if is_subscribed:
+        await start_command(callback_query.message)
+    else:
+        subscribe_button = InlineKeyboardMarkup().add(
+            InlineKeyboardButton("Подписаться", url=CHANNEL_INVITE_LINK),
+            InlineKeyboardButton("Проверить подписку", callback_data='check_subscription')
+        )
+        await bot.send_message(
+            callback_query.message.chat.id,
+            "❌ Вы всё ещё не подписаны на наш Telegram-канал. Пожалуйста, подпишитесь и попробуйте снова.",
+            reply_markup=subscribe_button
         )
 
 
