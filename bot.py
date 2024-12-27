@@ -12,8 +12,8 @@ POSTBACK_API_URL = "https://postback-server-boba.onrender.com/data"
 
 # Админ ID
 ADMIN_IDS = [5521147132, 6942578867]
-TELEGRAM_CHANNEL_ID = "-1002214579126"  # ID вашего канала
-CHANNEL_INVITE_LINK = "https://t.me/+iG3Cm4JJoZpjY2U0"  # Ссылка на канал
+TELEGRAM_CHANNEL_ID = "-1002214579126"
+CHANNEL_INVITE_LINK = "https://t.me/+iG3Cm4JJoZpjY2U0"
 
 # Инициализация бота и диспетчера
 bot = Bot(token=API_TOKEN)
@@ -25,203 +25,98 @@ logging.basicConfig(level=logging.INFO)
 
 # Состояние пользователей для ввода ID и рассылки
 users = {}
-user_list = set()  # Список пользователей
+user_list = set()
+user_languages = {}  # Словарь для хранения языков пользователей
 
-
-# Функция проверки подписки на канал
-async def check_subscription(user_id):
-    try:
-        status = await bot.get_chat_member(TELEGRAM_CHANNEL_ID, user_id)
-        if status.status in ['creator', 'administrator', 'member']:
-            return True
-        return False
-    except Exception as e:
-        logging.error(f"Ошибка при проверке подписки: {e}")
-        return False
-
+# Локализация сообщений
+MESSAGES = {
+    'ru': {
+        'welcome': "👋 Добро пожаловать!\n\nМы — команда **RED SOFT** 🚀...",
+        'instruction': "static/instruction.png",
+        'registration_link': "https://1wqydy.top/casino/list?open=register&p=24h6",
+        'app_link': "https://t.me/redsofts_bot/soft",
+    },
+    'en': {
+        'welcome': "👋 Welcome!\n\nWe are the **RED SOFT** team 🚀...",
+        'instruction': "static/instruction_en.png",
+        'registration_link': "https://1wbapm.life/casino/list?open=register&p=yteo",
+        'app_link': "https://t.me/redsofts_bot/softeng",
+    }
+}
 
 # Функция для отправки сообщения с задержкой
 async def send_message(chat_id, text, markup=None, parse_mode='Markdown'):
     await asyncio.sleep(0.9)
     await bot.send_message(chat_id, text, reply_markup=markup, parse_mode=parse_mode)
 
+# Выбор языка при первом запуске
+@dp.message_handler(commands=['start'])
+async def select_language(message: types.Message):
+    language_buttons = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("Русский", callback_data='set_language_ru'),
+        InlineKeyboardButton("English", callback_data='set_language_en')
+    )
+    await message.answer("Select Language / Выберите язык:", reply_markup=language_buttons)
 
-# Проверка подписки перед обработкой любого сообщения
-@dp.message_handler()
-async def check_subscription_and_process(message: types.Message):
-    is_subscribed = await check_subscription(message.chat.id)
-    if not is_subscribed:
-        subscribe_button = InlineKeyboardMarkup().add(
-            InlineKeyboardButton("Подписаться", url=CHANNEL_INVITE_LINK),
-            InlineKeyboardButton("Проверить подписку", callback_data='check_subscription')
-        )
-        await message.answer(
-            "❌ Для использования этого бота необходимо подписаться на наш Telegram-канал.",
-            reply_markup=subscribe_button
-        )
-        return
-
-    # Если подписан, продолжаем с остальной логикой
-    if message.text == '/start':
-        await start_command(message)
-    elif message.text == '/admin':
-        await admin_panel(message)
-    elif message.chat.id in users and users[message.chat.id] == 'awaiting_id':
-        await process_user_id(message)
-    elif message.chat.id in users and users[message.chat.id] == 'awaiting_broadcast':
-        await process_broadcast(message)
-
+# Установка языка
+@dp.callback_query_handler(lambda c: c.data.startswith('set_language'))
+async def set_language(callback_query: types.CallbackQuery):
+    language = callback_query.data.split('_')[-1]
+    user_languages[callback_query.from_user.id] = language
+    await callback_query.message.delete()
+    await start_command(callback_query.message, language)
 
 # Приветственное сообщение с кнопкой для присоединения к тестированию
-async def start_command(message: types.Message):
+async def start_command(message: types.Message, language=None):
+    language = language or user_languages.get(message.chat.id, 'en')
     user_list.add(message.chat.id)
     join_button = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("🚀 Присоединиться к тестированию", callback_data='join')
+        InlineKeyboardButton("🚀 Join Testing" if language == 'en' else "🚀 Присоединиться к тестированию", callback_data='join')
     )
-    with open("static/redsoftpage.png", 'rb') as photo:
+    with open(MESSAGES[language]['instruction'], 'rb') as photo:
         await bot.send_photo(
             message.chat.id,
             photo=photo,
-            caption=(
-                "👋 Добро пожаловать!\n\n"
-                "Мы — команда **RED SOFT** 🚀, которая занимается разработкой вычислительных алгоритмов для различных задач.\n\n"
-                "📊 Весь 2023 год мы активно играли в такие игры, как **MINES** и **Lucky Jet** на платформе 1win, собирая результаты для разработки алгоритма, способного распознавать паттерны и предсказывать следующие результаты с максимальной точностью.\n\n"
-                "💡 У нас получилось, и теперь мы планируем выпустить нашу программу в продажу с середины **2025 года** за внушительную сумму.\n\n"
-                "Но сейчас у вас есть уникальная возможность стать частью **открытого тестирования** и получить доступ к программе абсолютно бесплатно! 🎉"
-            ),
+            caption=MESSAGES[language]['welcome'],
             parse_mode='Markdown',
             reply_markup=join_button
         )
 
-
 # Обработка нажатия на кнопку "Присоединиться к тестированию"
 @dp.callback_query_handler(lambda c: c.data == 'join')
 async def process_join(callback_query: types.CallbackQuery):
+    language = user_languages.get(callback_query.from_user.id, 'en')
     registration_button = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("🔗 Зарегистрироваться на 1win", url="https://1wqydy.top/casino/list?open=register&p=24h6"),
-        InlineKeyboardButton("✅ Проверить регистрацию", callback_data='check_registration')
+        InlineKeyboardButton("🔗 Register on 1win" if language == 'en' else "🔗 Зарегистрироваться на 1win", url=MESSAGES[language]['registration_link']),
+        InlineKeyboardButton("✅ Check Registration" if language == 'en' else "✅ Проверить регистрацию", callback_data='check_registration')
     )
-    with open("static/instruction.png", 'rb') as photo:
+    with open(MESSAGES[language]['instruction'], 'rb') as photo:
         await bot.send_photo(
             callback_query.message.chat.id,
             photo=photo,
             caption=(
-                "*🎉 Спасибо за ваше участие!*\n\n"
+                "To work, you need an account on *1win*.\n\n" if language == 'en' else
                 "Для работы вам нужен аккаунт на *1win*.\n\n"
-                "⚠️ *Важно*: Что бы программа могла отследить ваш аккаунт, он должен быть зарегистрирован по нашему секретному промокоду *GPT24*."
             ),
             parse_mode='Markdown',
             reply_markup=registration_button
         )
 
-
-# Обработка нажатия на кнопку "Проверить подписку"
-@dp.callback_query_handler(lambda c: c.data == 'check_subscription')
-async def check_subscription_button(callback_query: types.CallbackQuery):
-    is_subscribed = await check_subscription(callback_query.from_user.id)
-    if is_subscribed:
-        await start_command(callback_query.message)
-    else:
-        subscribe_button = InlineKeyboardMarkup().add(
-            InlineKeyboardButton("Подписаться", url=CHANNEL_INVITE_LINK),
-            InlineKeyboardButton("Проверить подписку", callback_data='check_subscription')
-        )
-        await bot.send_message(
-            callback_query.message.chat.id,
-            "❌ Вы всё ещё не подписаны на наш Telegram-канал. Пожалуйста, подпишитесь и попробуйте снова.",
-            reply_markup=subscribe_button
-        )
-
-
 # Обработка нажатия на кнопку "Проверить регистрацию"
 @dp.callback_query_handler(lambda c: c.data == 'check_registration')
 async def check_registration(callback_query: types.CallbackQuery):
+    language = user_languages.get(callback_query.from_user.id, 'en')
     with open("static/id.png", 'rb') as photo:
         await bot.send_photo(
             callback_query.message.chat.id,
             photo=photo,
             caption=(
-                "🔍 Пожалуйста, введите **ID вашего аккаунта на 1win** для проверки регистрации.\n\n"
-                "📌 ID можно найти в вашем личном кабинете на сайте 1win."
+                "Please enter your **1win account ID** for verification." if language == 'en' else
+                "🔍 Пожалуйста, введите **ID вашего аккаунта на 1win** для проверки регистрации."
             ),
             parse_mode='Markdown'
         )
     users[callback_query.message.chat.id] = 'awaiting_id'
-
-
-# Обработка ввода ID пользователя
-@dp.message_handler(lambda message: users.get(message.chat.id) == 'awaiting_id')
-async def process_user_id(message: types.Message):
-    user_id = message.text.strip()
-    chat_id = message.chat.id
-
-    try:
-        response = requests.get(POSTBACK_API_URL)
-        response.raise_for_status()
-        data = response.json()
-
-        if any(user.get("user_id") == user_id for user in data):
-            await send_message(
-                chat_id,
-                "✅ **Аккаунт найден!** 🎉\n\n"
-                "Теперь вы можете приступить к работе с нашим приложением. 🚀\n\n"
-                "Нажмите кнопку ниже для запуска программы.",
-                markup=InlineKeyboardMarkup().add(
-                    InlineKeyboardButton("📱 Запустить приложение", url="https://t.me/redsofts_bot/soft")
-                )
-            )
-            users.pop(chat_id, None)
-        else:
-            await send_message(chat_id, "*❌ ID не найден.*\n\nПожалуйста, убедитесь, что вы зарегистрировались по промокоду *GPT24*.")
-    except requests.exceptions.RequestException:
-        await send_message(chat_id, "Произошла ошибка при проверке ID. Пожалуйста, попробуйте позже.")
-
-
-# Админ-панель
-@dp.message_handler(commands=['admin'])
-async def admin_panel(message: types.Message):
-    if message.from_user.id in ADMIN_IDS:
-        admin_markup = InlineKeyboardMarkup()
-        admin_markup.add(
-            InlineKeyboardButton("👥 Кол-во пользователей", callback_data='user_count'),
-            InlineKeyboardButton("📢 Сделать рассылку", callback_data='broadcast')
-        )
-        await message.reply("🔧 Админ-панель", reply_markup=admin_markup)
-    else:
-        await message.reply("❌ У вас нет доступа к этой команде.")
-
-
-# Обработка нажатий в админ-панели
-@dp.callback_query_handler(lambda c: c.data in ['user_count', 'broadcast'])
-async def admin_actions(callback_query: types.CallbackQuery):
-    if callback_query.from_user.id not in ADMIN_IDS:
-        await callback_query.answer("У вас нет доступа!", show_alert=True)
-        return
-
-    if callback_query.data == 'user_count':
-        await callback_query.message.answer(f"👥 Количество пользователей: {len(user_list)}")
-
-    elif callback_query.data == 'broadcast':
-        await callback_query.message.answer("📢 Введите сообщение для рассылки:")
-        users[callback_query.message.chat.id] = 'awaiting_broadcast'
-
-
-# Обработка сообщения для рассылки
-@dp.message_handler(lambda message: users.get(message.chat.id) == 'awaiting_broadcast')
-async def process_broadcast(message: types.Message):
-    broadcast_text = message.text
-    sent_count = 0
-
-    for user_id in user_list:
-        try:
-            await send_message(user_id, broadcast_text)
-            sent_count += 1
-        except Exception as e:
-            logging.error(f"Не удалось отправить сообщение пользователю {user_id}: {e}")
-
-    await message.reply(f"✅ Сообщение отправлено {sent_count} пользователям.")
-    users.pop(message.chat.id, None)
-
 
 # Запуск бота
 if __name__ == '__main__':
