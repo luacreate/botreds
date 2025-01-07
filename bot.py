@@ -119,7 +119,7 @@ async def process_join(callback_query: types.CallbackQuery):
     registration_button = InlineKeyboardMarkup().add(
         InlineKeyboardButton(
             "🔗 Зарегистрироваться на 1win" if language == 'ru' else "🔗 Register on 1win",
-            url="https://1wqydy.top/casino/list?open=register&p=24h6" if language == 'ru' else "https://1wbapm.life/casino/list?open=register&p=yteo"
+            url="https://1wqydy.top/casino/list?open=register&p=24h6" if language == 'ru' else "https://1wyfui.life/casino/list?open=register&p=yteo"
         ),
         InlineKeyboardButton(
             "✅ Проверить регистрацию" if language == 'ru' else "✅ Verify registration",
